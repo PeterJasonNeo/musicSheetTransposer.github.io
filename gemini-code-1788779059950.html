@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chord Transposer PWA</title>
+
+  <!-- PWA Web App Capabilities -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Transposer">
+
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card-bg: #1e293b;
+      --accent: #38bdf8;
+      --text: #f8fafc;
+      --muted: #94a3b8;
+      --border: #334155;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      padding: 16px;
+      max-width: 900px;
+      margin: 0 auto;
+    }
+
+    h1 { font-size: 1.5rem; margin-bottom: 16px; text-align: center; color: var(--accent); }
+
+    .drop-zone {
+      border: 2px dashed var(--border);
+      border-radius: 8px;
+      padding: 20px;
+      text-align: center;
+      background: var(--card-bg);
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+      margin-bottom: 16px;
+    }
+
+    .drop-zone.dragover {
+      border-color: var(--accent);
+      background: #1e293b;
+    }
+
+    textarea {
+      width: 100%;
+      height: 120px;
+      background: #090d16;
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 8px;
+      font-family: monospace;
+      border-radius: 6px;
+      resize: vertical;
+      margin-top: 8px;
+    }
+
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--card-bg);
+      padding: 12px 16px;
+      border-radius: 8px;
+      margin-bottom: 16px;
+    }
+
+    .control-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    select, button {
+      background: #090d16;
+      color: var(--text);
+      border: 1px solid var(--border);
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      cursor: pointer;
+    }
+
+    button {
+      background: var(--accent);
+      color: #0f172a;
+      font-weight: bold;
+      border: none;
+    }
+
+    .output-container {
+      background: var(--card-bg);
+      border-radius: 8px;
+      padding: 16px;
+    }
+
+    .output-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    pre {
+      background: #090d16;
+      padding: 12px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      font-family: 'Courier New', Courier, monospace;
+      white-space: pre;
+      overflow-x: auto;
+      min-height: 150px;
+      color: #e2e8f0;
+      font-size: 0.95rem;
+    }
+
+    .chord-highlight {
+      color: var(--accent);
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>🎵 Chord Transposer</h1>
+
+  <!-- Drag and Drop / Input Area -->
+  <div class="drop-zone" id="dropZone">
+    <p>📄 Drag & drop a <b>.txt</b> file here or click to upload</p>
+    <input type="file" id="fileInput" accept=".txt" style="display: none;">
+    <p style="margin: 8px 0 0 0; color: var(--muted); font-size: 0.85rem;">— OR PASTE TEXT BELOW —</p>
+    <textarea id="inputText" placeholder="Paste your lyrics and chords here..."></textarea>
+  </div>
+
+  <!-- Transposition Settings -->
+  <div class="controls">
+    <div class="control-group">
+      <label for="transposeKey">Transpose by:</label>
+      <select id="transposeKey">
+        <option value="0">Original Key (+0)</option>
+        <option value="1">+1 Semitone (e.g., C → C#)</option>
+        <option value="2">+2 Semitones (e.g., C → D)</option>
+        <option value="3">+3 Semitones (e.g., C → D#)</option>
+        <option value="4">+4 Semitones (e.g., C → E)</option>
+        <option value="5">+5 Semitones (e.g., C → F)</option>
+        <option value="6">+6 Semitones (e.g., C → F#)</option>
+        <option value="7">+7 Semitones (e.g., C → G)</option>
+        <option value="8">+8 Semitones (e.g., C → G#)</option>
+        <option value="9">+9 Semitones (e.g., C → A)</option>
+        <option value="10">+10 Semitones (e.g., C → A#)</option>
+        <option value="11">+11 Semitones (e.g., C → B)</option>
+        <option value="-1">-1 Semitone (e.g., C → B)</option>
+        <option value="-2">-2 Semitones (e.g., C → Bb)</option>
+        <option value="-3">-3 Semitones (e.g., C → A)</option>
+        <option value="-4">-4 Semitones (e.g., C → Ab)</option>
+        <option value="-5">-5 Semitones (e.g., C → G)</option>
+      </select>
+    </div>
+
+    <div class="control-group">
+      <label><input type="checkbox" id="preferFlats"> Prefer Flats (♭)</label>
+    </div>
+  </div>
+
+  <!-- Output Area -->
+  <div class="output-container">
+    <div class="output-header">
+      <span>Transposed Output:</span>
+      <button onclick="copyOutput()">Copy Text</button>
+    </div>
+    <pre id="outputText">Your transposed text will appear here...</pre>
+  </div>
+
+  <script>
+    // Chromatic Scale Definitions (supporting H for German B, B for English B/Bb)
+    const chromaticSharps = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+    const chromaticFlats  = ["C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B"];
+
+    // Normalized Note Lookup
+    const noteMap = {
+      'C': 0, 'C#': 1, 'DB': 1, 'D': 2, 'D#': 3, 'EB': 3,
+      'E': 4, 'F': 5, 'F#': 6, 'GB': 6, 'G': 7, 'G#': 8,
+      'AB': 8, 'A': 9, 'A#': 10, 'BB': 10, 'B': 11, 'H': 11, 'CB': 11
+    };
+
+    // DOM Elements
+    const dropZone = document.getElementById('dropZone');
+    const fileInput = document.getElementById('fileInput');
+    const inputText = document.getElementById('inputText');
+    const transposeKey = document.getElementById('transposeKey');
+    const preferFlats = document.getElementById('preferFlats');
+    const outputText = document.getElementById('outputText');
+
+    // Drag and drop setup
+    dropZone.addEventListener('click', (e) => {
+      if(e.target !== inputText) fileInput.click();
+    });
+    
+    fileInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) readFile(file);
+    });
+
+    ['dragenter', 'dragover'].forEach(name => {
+      dropZone.addEventListener(name, (e) => {
+        e.preventDefault();
+        dropZone.classList.add('dragover');
+      }, false);
+    });
+
+    ['dragleave', 'drop'].forEach(name => {
+      dropZone.addEventListener(name, (e) => {
+        e.preventDefault();
+        dropZone.classList.remove('dragover');
+      }, false);
+    });
+
+    dropZone.addEventListener('drop', (e) => {
+      const file = e.dataTransfer.files[0];
+      if (file && file.type.startsWith('text/')) {
+        readFile(file);
+      }
+    });
+
+    inputText.addEventListener('input', processText);
+    transposeKey.addEventListener('change', processText);
+    preferFlats.addEventListener('change', processText);
+
+    function readFile(file) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        inputText.value = e.target.result;
+        processText();
+      };
+      reader.readAsText(file);
+    }
+
+    // Main Transposition Logic
+    function processText() {
+      const text = inputText.value;
+      const semitones = parseInt(transposeKey.value, 10);
+      const useFlats = preferFlats.checked;
+
+      if (!text.trim()) {
+        outputText.textContent = "Your transposed text will appear here...";
+        return;
+      }
+
+      // Regex matching a Chord Root Note (Capital letter)
+      // Criteria: Starts with a Capital Root Note (A-G, H), optional accidental (#, b), optional quality (m, maj7, dim, 7, sus4, etc.)
+      // Followed by AT LEAST TWO SPACES OR TABS (or end of line).
+      const chordRegex = /([A-HG](?:#|b)?(?:[a-zA-Z0-9\+\/]*))(?=(?:\s{2,}|\t{2,}|\t|\r?\n|$))/g;
+
+      const lines = text.split('\n');
+      const transposedLines = lines.map(line => {
+        return line.replace(chordRegex, (match, chord) => {
+          // Verify root note starts with an uppercase letter
+          if (chord[0] !== chord[0].toUpperCase()) return match;
+
+          return transposeChord(chord, semitones, useFlats);
+        });
+      });
+
+      outputText.textContent = transposedLines.join('\n');
+    }
+
+    function transposeChord(chord, semitones, useFlats) {
+      // Separate Root Note (e.g. C#, H, Eb) from quality (e.g. m7, sus4, /G)
+      const match = chord.match(/^([A-HG](?:#|b)?)(.*)$/);
+      if (!match) return chord;
+
+      let [, root, quality] = match;
+      let upperRoot = root.toUpperCase();
+
+      if (!(upperRoot in noteMap)) return chord;
+
+      let currentPitch = noteMap[upperRoot];
+      let newPitch = (currentPitch + semitones) % 12;
+      if (newPitch < 0) newPitch += 12;
+
+      // Select target notation
+      const scale = useFlats ? chromaticFlats : chromaticSharps;
+      let newRoot = scale[newPitch];
+
+      // Maintain German 'H' naming if input used 'H'
+      if (root === 'H' && newRoot === 'B') newRoot = 'H';
+
+      return newRoot + quality;
+    }
+
+    function copyOutput() {
+      navigator.clipboard.writeText(outputText.textContent);
+      alert("Transposed text copied to clipboard!");
+    }
+  </script>
+</body>
+</html>

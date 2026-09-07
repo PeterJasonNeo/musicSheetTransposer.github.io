@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Chord Transposer v2</title>
+  <title>Chord Transposer PWA</title>
 
   <!-- PWA Web App Capabilities -->
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -125,7 +125,7 @@
 </head>
 <body>
 
-  <h1>🎵 Chord Transposer</h1>
+  <h1>🎵 Chord Transposer v2</h1>
 
   <!-- Drag and Drop / Input Area -->
   <div class="drop-zone" id="dropZone">
@@ -252,18 +252,15 @@
       // Tokenize into bracketed headers [...] and remaining content
       const segmentRegex = /(\[[^\]]+\])|([^\[]+)/g;
 
-      // Comprehensive chord matching pattern:
-      // Root: A-H + optional #/b
-      // Quality: extensions like m, maj, min, dim, aug, sus, add, numbers, b5, #9, etc.
-      // Bass: optional slash note (/G, /F#)
-      const chordTokenRegex = /\b([A-HG](?:#|b)?)(m(?:aj|in)?|dim|aug|sus|add|[0-9]|\+|#|-)*(?:\/([A-HG](?:#|b)?))?\b/g;
+      // Matches Root ([A-HG] + optional #/b), Quality extension, and optional Slash Bass (/G, /F#)
+      const chordTokenRegex = /\b([A-HG](?:#|b)?)([a-zA-Z0-9\+\#-]*)(?:\/([A-HG](?:#|b)?))?\b/g;
 
       const transposedText = text.replace(segmentRegex, (match, bracketToken, textToken) => {
-        // Leave section labels like [Intro] or [Verse 1] untouched
+        // Leave section labels like [Intro] or [Pre-Chorus] untouched
         if (bracketToken) return bracketToken;
 
         return textToken.replace(chordTokenRegex, (fullMatch, root, quality, bass) => {
-          // Verify capital letter root
+          // Verify root note starts with an uppercase letter
           if (root[0] !== root[0].toUpperCase()) return fullMatch;
 
           let newRoot = transposeNote(root, semitones, useFlats);

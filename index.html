@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Chord Transposer V2.1</title>
+  <title>Chord Transposer V2.2</title>
 
   <!-- PWA Web App Capabilities -->
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -125,7 +125,7 @@
 </head>
 <body>
 
-  <h1>🎵 Chord Transposer V2.1</h1>
+  <h1>🎵 Chord Transposer V2.2</h1>
 
   <!-- Drag and Drop / Input Area -->
   <div class="drop-zone" id="dropZone">
@@ -175,11 +175,10 @@
   </div>
 
   <script>
-    // Chromatic Scale Definitions (supporting H for German notation)
+    // Chromatic Scale Definitions
     const chromaticSharps = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
     const chromaticFlats  = ["C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B"];
 
-    // Normalized Note Lookup Table
     const noteMap = {
       'C': 0, 'C#': 1, 'DB': 1, 'D': 2, 'D#': 3, 'EB': 3,
       'E': 4, 'F': 5, 'F#': 6, 'GB': 6, 'G': 7, 'G#': 8,
@@ -196,7 +195,7 @@
 
     // Setup Event Listeners
     dropZone.addEventListener('click', (e) => {
-      if(e.target !== inputText) fileInput.click();
+      if (e.target !== inputText) fileInput.click();
     });
     
     fileInput.addEventListener('change', (e) => {
@@ -238,16 +237,26 @@
       reader.readAsText(file);
     }
 
-    // Single chord regex pattern
-    const singleChordPattern = /^([A-HG](?:#|b)?)([a-zA-Z0-9\+\#-]*)(?:\/([A-HG](?:#|b)?))?$/;
+    // Determines if a line is a chord line based purely on whitespace spacing and character composition
+    function isChordLine(line) {
+      if (!line.trim()) return false;
 
-    // Checks if a word is a valid chord token
-    function isChordToken(token) {
-      if (!token) return false;
-      const match = token.match(singleChordPattern);
-      if (!match) return false;
-      // Ensure root note is uppercase
-      return match[1][0] === match[1][0].toUpperCase();
+      // Ignore section headers like [Intro] or [Verse]
+      if (/^\s*\[[^\]]+\]\s*$/.test(line)) return false;
+
+      // Count non-whitespace characters vs total length
+      const totalLength = line.length;
+      const spacesCount = (line.match(/\s/g) || []).length;
+      const spaceRatio = spacesCount / totalLength;
+
+      // Chord lines have wide spacing between items (> 50% whitespace ratio)
+      if (spaceRatio >= 0.5) return true;
+
+      // Alternatively, if separated by multiple spaces and contains no typical punctuation
+      const tokens = line.trim().split(/\s+/);
+      const isShortLineWithSpacedTokens = tokens.length <= 6 && /\s{2,}/.test(line);
+
+      return isShortLineWithSpacedTokens;
     }
 
     // Main Transposition Engine
@@ -263,26 +272,17 @@
 
       const lines = text.split('\n');
       const transposedLines = lines.map(line => {
-        // Leave bracketed headers like [Verse 1] untouched
+        // Leave section headers untouched
         if (/^\s*\[[^\]]+\]\s*$/.test(line)) {
           return line;
         }
 
-        const tokens = line.trim().split(/\s+/).filter(t => t.length > 0);
-        if (tokens.length === 0) return line;
-
-        // Count how many tokens on this line are valid chords
-        const chordCount = tokens.filter(isChordToken).length;
-        const chordRatio = chordCount / tokens.length;
-
-        // A line is considered a chord line if >50% of tokens are valid chords
-        const isChordLine = chordRatio > 0.5;
-
-        if (!isChordLine) {
+        // Only process line if whitespace analysis confirms it's a chord line
+        if (!isChordLine(line)) {
           return line; // Preserve lyric line without modifying text
         }
 
-        // Transpose only the chords on identified chord lines
+        // Transpose chords on identified chord line
         const chordTokenRegex = /\b([A-HG](?:#|b)?)([a-zA-Z0-9\+\#-]*)(?:\/([A-HG](?:#|b)?))?\b/g;
 
         return line.replace(chordTokenRegex, (fullMatch, root, quality, bass) => {
@@ -309,7 +309,6 @@
       const scale = useFlats ? chromaticFlats : chromaticSharps;
       let newNote = scale[newPitch];
 
-      // Retain German 'H' notation if original used 'H'
       if (note === 'H' && newNote === 'B') newNote = 'H';
 
       return newNote;

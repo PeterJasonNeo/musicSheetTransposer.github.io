@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Chord Transposer PWA</title>
+  <title>Chord Transposer v2</title>
 
   <!-- PWA Web App Capabilities -->
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -175,11 +175,11 @@
   </div>
 
   <script>
-    // Chromatic Scale Definitions (supporting H for German B, B for English B/Bb)
+    // Chromatic Scale Definitions (supporting H for German notation)
     const chromaticSharps = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
     const chromaticFlats  = ["C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B"];
 
-    // Normalized Note Lookup
+    // Normalized Note Lookup Table
     const noteMap = {
       'C': 0, 'C#': 1, 'DB': 1, 'D': 2, 'D#': 3, 'EB': 3,
       'E': 4, 'F': 5, 'F#': 6, 'GB': 6, 'G': 7, 'G#': 8,
@@ -194,7 +194,7 @@
     const preferFlats = document.getElementById('preferFlats');
     const outputText = document.getElementById('outputText');
 
-    // Drag and drop setup
+    // Setup Event Listeners
     dropZone.addEventListener('click', (e) => {
       if(e.target !== inputText) fileInput.click();
     });
@@ -238,7 +238,7 @@
       reader.readAsText(file);
     }
 
-    // Main Transposition Logic
+    // Main Transposition Engine
     function processText() {
       const text = inputText.value;
       const semitones = parseInt(transposeKey.value, 10);
@@ -249,49 +249,48 @@
         return;
       }
 
-      // Tokenize into brackets [...] and non-bracket sections
-      // Ensures section headers like [Intro] or [Verse 1] are never altered
+      // Tokenize into bracketed headers [...] and remaining content
       const segmentRegex = /(\[[^\]]+\])|([^\[]+)/g;
 
-      // Matches root chords followed by 2+ spaces, 2+ tabs, a tab, or line breaks
-      const chordRegex = /\b([A-HG](?:#|b)?(?:[a-zA-Z0-9\+\/]*))(?=(?:\s{2,}|\t{2,}|\t|\r?\n|$))/g;
+      // Comprehensive chord matching pattern:
+      // Root: A-H + optional #/b
+      // Quality: extensions like m, maj, min, dim, aug, sus, add, numbers, b5, #9, etc.
+      // Bass: optional slash note (/G, /F#)
+      const chordTokenRegex = /\b([A-HG](?:#|b)?)(m(?:aj|in)?|dim|aug|sus|add|[0-9]|\+|#|-)*(?:\/([A-HG](?:#|b)?))?\b/g;
 
       const transposedText = text.replace(segmentRegex, (match, bracketToken, textToken) => {
-        // Keep bracketed section titles exactly as they are
-        if (bracketToken) {
-          return bracketToken;
-        }
+        // Leave section labels like [Intro] or [Verse 1] untouched
+        if (bracketToken) return bracketToken;
 
-        // Transpose any valid chord found in non-bracketed text
-        return textToken.replace(chordRegex, (chordMatch, chord) => {
-          if (chord[0] !== chord[0].toUpperCase()) return chordMatch;
-          return transposeChord(chord, semitones, useFlats);
+        return textToken.replace(chordTokenRegex, (fullMatch, root, quality, bass) => {
+          // Verify capital letter root
+          if (root[0] !== root[0].toUpperCase()) return fullMatch;
+
+          let newRoot = transposeNote(root, semitones, useFlats);
+          let newBass = bass ? '/' + transposeNote(bass, semitones, useFlats) : '';
+
+          return newRoot + (quality || '') + newBass;
         });
       });
 
       outputText.textContent = transposedText;
     }
 
-    function transposeChord(chord, semitones, useFlats) {
-      const match = chord.match(/^([A-HG](?:#|b)?)(.*)$/);
-      if (!match) return chord;
+    function transposeNote(note, semitones, useFlats) {
+      let upperNote = note.toUpperCase();
+      if (!(upperNote in noteMap)) return note;
 
-      let [, root, quality] = match;
-      let upperRoot = root.toUpperCase();
-
-      if (!(upperRoot in noteMap)) return chord;
-
-      let currentPitch = noteMap[upperRoot];
+      let currentPitch = noteMap[upperNote];
       let newPitch = (currentPitch + semitones) % 12;
       if (newPitch < 0) newPitch += 12;
 
       const scale = useFlats ? chromaticFlats : chromaticSharps;
-      let newRoot = scale[newPitch];
+      let newNote = scale[newPitch];
 
-      // Maintain German 'H' naming convention if input used 'H'
-      if (root === 'H' && newRoot === 'B') newRoot = 'H';
+      // Retain German 'H' notation if original used 'H'
+      if (note === 'H' && newNote === 'B') newNote = 'H';
 
-      return newRoot + quality;
+      return newNote;
     }
 
     function copyOutput() {

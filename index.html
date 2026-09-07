@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Chord Transposer V2.2</title>
+  <title>Chord Transposer PWA</title>
 
   <!-- PWA Web App Capabilities -->
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -125,7 +125,7 @@
 </head>
 <body>
 
-  <h1>🎵 Chord Transposer V2.2</h1>
+  <h1>🎵 Chord Transposer</h1>
 
   <!-- Drag and Drop / Input Area -->
   <div class="drop-zone" id="dropZone">
@@ -237,26 +237,12 @@
       reader.readAsText(file);
     }
 
-    // Determines if a line is a chord line based purely on whitespace spacing and character composition
+    // Whitespace ratio check for lines after Intro
     function isChordLine(line) {
       if (!line.trim()) return false;
-
-      // Ignore section headers like [Intro] or [Verse]
-      if (/^\s*\[[^\]]+\]\s*$/.test(line)) return false;
-
-      // Count non-whitespace characters vs total length
       const totalLength = line.length;
       const spacesCount = (line.match(/\s/g) || []).length;
-      const spaceRatio = spacesCount / totalLength;
-
-      // Chord lines have wide spacing between items (> 50% whitespace ratio)
-      if (spaceRatio >= 0.5) return true;
-
-      // Alternatively, if separated by multiple spaces and contains no typical punctuation
-      const tokens = line.trim().split(/\s+/);
-      const isShortLineWithSpacedTokens = tokens.length <= 6 && /\s{2,}/.test(line);
-
-      return isShortLineWithSpacedTokens;
+      return (spacesCount / totalLength) >= 0.5;
     }
 
     // Main Transposition Engine
@@ -271,14 +257,31 @@
       }
 
       const lines = text.split('\n');
+      let inPureIntroSection = false;
+
       const transposedLines = lines.map(line => {
-        // Leave section headers untouched
+        const trimmed = line.trim();
+
+        // Detect section headers
         if (/^\s*\[[^\]]+\]\s*$/.test(line)) {
+          // Enable pure chord mode for Intro section
+          if (/\[intro\]/i.test(trimmed)) {
+            inPureIntroSection = true;
+          } else {
+            // Exit pure intro section when encountering [Verse 1], [Chorus], etc.
+            inPureIntroSection = false;
+          }
           return line;
         }
 
-        // Only process line if whitespace analysis confirms it's a chord line
-        if (!isChordLine(line)) {
+        if (!trimmed) return line;
+
+        // Determine whether to process as a chord line
+        // If before/in [Intro], treat line strictly as pure chords
+        // Otherwise use spacing ratio detection
+        const shouldTranspose = inPureIntroSection || isChordLine(line);
+
+        if (!shouldTranspose) {
           return line; // Preserve lyric line without modifying text
         }
 

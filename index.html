@@ -50,7 +50,7 @@
 
     textarea {
       width: 100%;
-      height: 120px;
+      height: 140px;
       background: #090d16;
       border: 1px solid var(--border);
       color: var(--text);
@@ -120,11 +120,6 @@
       min-height: 150px;
       color: #e2e8f0;
       font-size: 0.95rem;
-    }
-
-    .chord-highlight {
-      color: var(--accent);
-      font-weight: bold;
     }
   </style>
 </head>
@@ -254,26 +249,30 @@
         return;
       }
 
-      // Regex matching a Chord Root Note (Capital letter)
-      // Criteria: Starts with a Capital Root Note (A-G, H), optional accidental (#, b), optional quality (m, maj7, dim, 7, sus4, etc.)
-      // Followed by AT LEAST TWO SPACES OR TABS (or end of line).
-      const chordRegex = /([A-HG](?:#|b)?(?:[a-zA-Z0-9\+\/]*))(?=(?:\s{2,}|\t{2,}|\t|\r?\n|$))/g;
+      // Tokenize into brackets [...] and non-bracket sections
+      // Ensures section headers like [Intro] or [Verse 1] are never altered
+      const segmentRegex = /(\[[^\]]+\])|([^\[]+)/g;
 
-      const lines = text.split('\n');
-      const transposedLines = lines.map(line => {
-        return line.replace(chordRegex, (match, chord) => {
-          // Verify root note starts with an uppercase letter
-          if (chord[0] !== chord[0].toUpperCase()) return match;
+      // Matches root chords followed by 2+ spaces, 2+ tabs, a tab, or line breaks
+      const chordRegex = /\b([A-HG](?:#|b)?(?:[a-zA-Z0-9\+\/]*))(?=(?:\s{2,}|\t{2,}|\t|\r?\n|$))/g;
 
+      const transposedText = text.replace(segmentRegex, (match, bracketToken, textToken) => {
+        // Keep bracketed section titles exactly as they are
+        if (bracketToken) {
+          return bracketToken;
+        }
+
+        // Transpose any valid chord found in non-bracketed text
+        return textToken.replace(chordRegex, (chordMatch, chord) => {
+          if (chord[0] !== chord[0].toUpperCase()) return chordMatch;
           return transposeChord(chord, semitones, useFlats);
         });
       });
 
-      outputText.textContent = transposedLines.join('\n');
+      outputText.textContent = transposedText;
     }
 
     function transposeChord(chord, semitones, useFlats) {
-      // Separate Root Note (e.g. C#, H, Eb) from quality (e.g. m7, sus4, /G)
       const match = chord.match(/^([A-HG](?:#|b)?)(.*)$/);
       if (!match) return chord;
 
@@ -286,11 +285,10 @@
       let newPitch = (currentPitch + semitones) % 12;
       if (newPitch < 0) newPitch += 12;
 
-      // Select target notation
       const scale = useFlats ? chromaticFlats : chromaticSharps;
       let newRoot = scale[newPitch];
 
-      // Maintain German 'H' naming if input used 'H'
+      // Maintain German 'H' naming convention if input used 'H'
       if (root === 'H' && newRoot === 'B') newRoot = 'H';
 
       return newRoot + quality;

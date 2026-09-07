@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Chord Transposer PWA</title>
+  <title>Chord Transposer V2.3</title>
 
   <!-- PWA Web App Capabilities -->
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -125,7 +125,7 @@
 </head>
 <body>
 
-  <h1>🎵 Chord Transposer</h1>
+  <h1>🎵 Chord Transposer V2.3</h1>
 
   <!-- Drag and Drop / Input Area -->
   <div class="drop-zone" id="dropZone">
@@ -237,8 +237,8 @@
       reader.readAsText(file);
     }
 
-    // Whitespace ratio check for lines after Intro
-    function isChordLine(line) {
+    // Whitespace ratio check for lines after Verse 1
+    function isChordLineByWhitespace(line) {
       if (!line.trim()) return false;
       const totalLength = line.length;
       const spacesCount = (line.match(/\s/g) || []).length;
@@ -257,37 +257,36 @@
       }
 
       const lines = text.split('\n');
-      let inPureIntroSection = false;
+      let inIntroSection = false;
+
+      // Regex to match root note, quality extensions (m, maj, sus, add, numbers, etc.), and slash bass
+      const chordTokenRegex = /\b([A-HG](?:#|b)?)([a-zA-Z0-9\+\#-]*)(?:\/([A-HG](?:#|b)?))?\b/g;
 
       const transposedLines = lines.map(line => {
         const trimmed = line.trim();
 
         // Detect section headers
         if (/^\s*\[[^\]]+\]\s*$/.test(line)) {
-          // Enable pure chord mode for Intro section
           if (/\[intro\]/i.test(trimmed)) {
-            inPureIntroSection = true;
-          } else {
-            // Exit pure intro section when encountering [Verse 1], [Chorus], etc.
-            inPureIntroSection = false;
+            inIntroSection = true;
+          } else if (/\[verse\s*1\]/i.test(trimmed)) {
+            inIntroSection = false;
           }
           return line;
         }
 
         if (!trimmed) return line;
 
-        // Determine whether to process as a chord line
-        // If before/in [Intro], treat line strictly as pure chords
-        // Otherwise use spacing ratio detection
-        const shouldTranspose = inPureIntroSection || isChordLine(line);
+        // Determine whether to transpose this line:
+        // 1. Between [Intro] and [Verse 1]: Transpose all tokens unconditionally (token-based mode)
+        // 2. From [Verse 1] onwards: Transpose only if line analysis shows >50% whitespace
+        const shouldTranspose = inIntroSection || isChordLineByWhitespace(line);
 
         if (!shouldTranspose) {
           return line; // Preserve lyric line without modifying text
         }
 
-        // Transpose chords on identified chord line
-        const chordTokenRegex = /\b([A-HG](?:#|b)?)([a-zA-Z0-9\+\#-]*)(?:\/([A-HG](?:#|b)?))?\b/g;
-
+        // Perform transposition on matched chord tokens
         return line.replace(chordTokenRegex, (fullMatch, root, quality, bass) => {
           if (root[0] !== root[0].toUpperCase()) return fullMatch;
 
